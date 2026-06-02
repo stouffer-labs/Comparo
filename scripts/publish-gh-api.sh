@@ -120,7 +120,8 @@ for file in "${FILES[@]}"; do
     echo "dry-run: ${msg}"; continue
   fi
   content_file="${work_dir}/content"
-  base64 -i "$file" | tr -d '\n' >"$content_file"
+  # `base64 < file` (not `-i`, which is macOS-only) for Linux portability.
+  base64 < "$file" | tr -d '\n' >"$content_file"
   payload="${work_dir}/payload"
   if [[ -n "$sha" ]]; then
     jq -n --arg m "$msg" --rawfile c "$content_file" --arg s "$sha" --arg b "$BRANCH" \
