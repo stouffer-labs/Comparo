@@ -84,7 +84,9 @@ mkdir -p "${INSTALL_DIR}"
 tar -C "${src_root}" --exclude='./node_modules' --exclude='./.git' --exclude='./.comparo' \
     --exclude='./tmp' --exclude='./dist' -cf - . | tar -C "${INSTALL_DIR}" -xf -
 
-( cd "${INSTALL_DIR}" && npm ci --omit=dev && npm run build )
+# Build from source needs the dev toolchain (typescript + @types/node), so do a
+# full `npm ci`, compile, then prune dev deps to leave a lean prod-only runtime.
+( cd "${INSTALL_DIR}" && npm ci && npm run build && npm prune --omit=dev )
 
 mkdir -p "${BIN_DIR}"
 ln -sf "${INSTALL_DIR}/bin/comparo.js" "${BIN_DIR}/comparo"
