@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Comparo runtime artifacts (contain content from reviewed projects — never publish)
+.comparo/
+
+# Scratch / debug
+tmp/
+latest
+claude-debug.log
+*.log
+
+# Local tool/editor state
+.claude/
+.gemini/
+
+# Archives / snapshots
+*.zip
+*.tar.gz
+
+# OS junk
+.DS_Store
+._*
