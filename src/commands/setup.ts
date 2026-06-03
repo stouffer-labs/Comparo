@@ -63,16 +63,21 @@ export function getPackageRoot(startDir: string = MODULE_DIR): string {
   }
 }
 
-// Register the PATH-resolved `comparo` launcher rather than an absolute
-// `<node> <abs>/bin/comparo.js` command. The absolute form baked in the
-// nvm-version-specific node path (process.execPath) and a fixed install
-// location, both of which break on a node upgrade or a move. `comparo mcp
-// serve` resolves via PATH (the launcher created by scripts/install.sh) and
-// survives both.
+// Register an absolute node + absolute cli.js so the MCP host can spawn the
+// server WITHOUT relying on its inherited PATH. A bare `comparo` (or a script
+// with a `#!/usr/bin/env node` shebang) fails whenever the host was launched
+// without ~/.local/bin and the nvm node dir on PATH (e.g. GUI/Spotlight or a
+// fresh shell) — observed as "Executable not found in $PATH: comparo".
+//
+// `command` points at a STABLE node symlink (`<packageRoot>/bin/node`) that
+// scripts/install.sh repoints at the build-time node on every (re)install.
+// This keeps the registration node-version-agnostic: a node upgrade only moves
+// the symlink, never requiring the three MCP configs to be rewritten.
 export function getLocalServerLaunchConfig(): ServerLaunchConfig {
+  const packageRoot = getPackageRoot();
   return {
-    command: 'comparo',
-    args: ['mcp', 'serve'],
+    command: join(packageRoot, 'bin', 'node'),
+    args: [join(packageRoot, 'dist', 'src', 'cli.js'), 'mcp', 'serve'],
   };
 }
 
