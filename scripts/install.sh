@@ -88,6 +88,16 @@ tar -C "${src_root}" --exclude='./node_modules' --exclude='./.git' --exclude='./
 # full `npm ci`, compile, then prune dev deps to leave a lean prod-only runtime.
 ( cd "${INSTALL_DIR}" && npm ci && npm run build && npm prune --omit=dev )
 
+# Stable node symlink for the MCP registration. The MCP host spawns the server
+# directly (no shell), inheriting whatever PATH it was launched with — which on
+# GUI/fresh-shell launches lacks ~/.local/bin AND the nvm node dir. So the
+# registration (written by `comparo mcp setup`) points at THIS absolute symlink
+# rather than a bare `comparo` or a `#!/usr/bin/env node` shebang. Repointing it
+# here on every (re)install keeps the registration node-version-agnostic.
+node_bin="$(command -v node)"
+ln -sf "${node_bin}" "${INSTALL_DIR}/bin/node"
+echo "stable node symlink: ${INSTALL_DIR}/bin/node -> ${node_bin}"
+
 mkdir -p "${BIN_DIR}"
 ln -sf "${INSTALL_DIR}/bin/comparo.js" "${BIN_DIR}/comparo"
 chmod +x "${INSTALL_DIR}/bin/comparo.js"
