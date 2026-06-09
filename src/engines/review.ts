@@ -142,10 +142,15 @@ export async function executeReview(
   const successfulResponses: ProviderResponse[] = [];
   const failed: Array<{ provider: ProviderName; error: string }> = [];
 
+  const unavailableProviders: ProviderName[] = [];
+
   results.forEach((result, idx) => {
     const providerName = request.reviewers[idx];
     if (result.status === 'fulfilled') {
       responses.push(result.value);
+      if (result.value.unavailable) {
+        unavailableProviders.push(providerName);
+      }
       if (result.value.text.trim()) {
         successfulResponses.push(result.value);
       } else if (result.value.error) {
@@ -160,6 +165,23 @@ export async function executeReview(
 
   if (successfulResponses.length === 0 && failed.length > 0) {
     const failReport = failed.map(f => `- **${f.provider}**: ${f.error}`).join('\n');
+    // If EVERY reviewer failed purely because its model backend was unavailable
+    // (upstream outage), lead with a clear, distinct banner so the calling agent
+    // and user know the review was SKIPPED due to unavailability — not that the
+    // work under review failed validation, and not a comparo bug.
+    if (unavailableProviders.length > 0 && unavailableProviders.length === failed.length) {
+      return [
+        '## Cross-Validation Report — SKIPPED (model backend unavailable)',
+        '',
+        `⚠️ The review could not run because the reviewer backend${unavailableProviders.length > 1 ? 's were' : ' was'} ` +
+          `temporarily unavailable (upstream outage — e.g. Amazon Bedrock streaming/capacity errors). ` +
+          `This is NOT a failure of the code/design under review, and NOT a comparo problem. ` +
+          `Re-run the review when the backend recovers.`,
+        '',
+        '### Unavailable reviewers',
+        failReport,
+      ].join('\n');
+    }
     return `## Cross-Validation Report\n\nNo successful responses received.\n\n### Failed Reviewers\n${failReport}`;
   }
 
