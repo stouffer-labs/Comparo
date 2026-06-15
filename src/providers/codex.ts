@@ -247,20 +247,30 @@ export class CodexAdapter extends ProviderAdapter {
    * Signals (only treated as an outage when the turn did NOT complete, so a lone
    * transient reconnect that recovers is NOT flagged):
    *  - an explicit `turn.failed` event, OR
-   *  - `error` events whose message matches a known upstream-outage signature
-   *    (stream disconnected / exceeded on-demand capacity / server had an error /
-   *    reconnecting … 5/5 / throttl / 429 / 503).
+   *  - `error` events whose message matches a known upstream-outage signature:
+   *    stream disconnected / exceeded on-demand capacity / server had an error /
+   *    reconnecting / throttl / 429 / 5xx (transient), OR
+   *    404 "Engine not found" / model-not-served (the configured model slug isn't
+   *    available at the endpoint — actionable: wrong/retired model, not just an outage).
    */
   private detectUnavailability(events: Array<Record<string, unknown>>): string | null {
     const turnCompleted = events.some((e) => e.type === 'turn.completed');
     const turnFailed = events.some((e) => e.type === 'turn.failed');
 
-    const OUTAGE = /stream disconnected|exceeded on-demand capacity|the server had an error|reconnecting\b|throttl|throughput|service unavailable|\b429\b|\b50[0234]\b/i;
+    const OUTAGE = /stream disconnected|exceeded on-demand capacity|the server had an error|reconnecting\b|throttl|throughput|service unavailable|engine not found|\bnot found\b|\b404\b|\b429\b|\b50[0234]\b/i;
+
+    // Scan both standalone `error` events and the nested `error.message` on a
+    // `turn.failed` event (the 404 "Engine not found" lives in the latter).
     let lastOutageMsg: string | null = null;
+    const consider = (msg: unknown) => {
+      if (typeof msg === 'string' && OUTAGE.test(msg)) lastOutageMsg = msg;
+    };
     for (const e of events) {
-      if (e.type !== 'error') continue;
-      const msg = typeof e.message === 'string' ? e.message : '';
-      if (OUTAGE.test(msg)) lastOutageMsg = msg;
+      if (e.type === 'error') consider(e.message);
+      if (e.type === 'turn.failed') {
+        const err = e.error as Record<string, unknown> | undefined;
+        consider(err?.message);
+      }
     }
 
     // Explicit failure: always an outage (codex gave up after its own retries).
