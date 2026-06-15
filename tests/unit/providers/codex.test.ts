@@ -225,6 +225,23 @@ describe('CodexAdapter', () => {
     expect(res.error).toMatch(/capacity|unavailable|skipped/i);
   });
 
+  it('flags UNAVAILABLE on a 404 "Engine not found" (model slug not served), surfacing the real message', async () => {
+    const lines = [
+      JSON.stringify({ type: 'thread.started', thread_id: 't' }),
+      JSON.stringify({ type: 'turn.started' }),
+      JSON.stringify({ type: 'error', message: 'Task submission failed with status 404 Not Found: Engine not found' }),
+      JSON.stringify({ type: 'turn.failed', error: { message: 'Task submission failed with status 404 Not Found: Engine not found' } }),
+    ];
+    mockRunCommand.mockResolvedValue(okResult(lines.join('\n')));
+
+    const res = await adapter.invoke({ prompt: 'q', timeout: 30_000 });
+
+    expect(res.unavailable).toBe(true);
+    expect(res.text).toBe('');
+    // The surfaced reason should include the real 404 text, not just the generic fallback.
+    expect(res.error).toMatch(/Engine not found|404/i);
+  });
+
   it('does NOT flag unavailable when a transient reconnect recovers and the turn completes', async () => {
     // A single mid-stream reconnect that then succeeds must NOT be treated as an outage.
     const lines = [
