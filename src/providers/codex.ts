@@ -61,19 +61,24 @@ export class CodexAdapter extends ProviderAdapter {
     // mangling (see alwaysUseStdin above).
     const useStdin = alwaysUseStdin() || opts.prompt.length > STDIN_THRESHOLD;
 
+    // Sandbox mode is a SINGLE explicit choice. We deliberately do NOT use the
+    // legacy `--full-auto` alias: it (a) prints a "`--full-auto` is deprecated;
+    // use `--sandbox workspace-write` instead" warning on every call — which AI
+    // sessions repeatedly misread as the cause of failures — and (b) combined
+    // with the safe-mode `-s read-only` push below it sent TWO conflicting
+    // sandbox flags. `read-only` for safe/quick reviews (no file writes needed);
+    // `workspace-write` otherwise (the exact behavior `--full-auto` expanded to).
+    const sandboxMode = opts.safeMode ? 'read-only' : 'workspace-write';
+
     const args = [
       'exec',
       ...(useStdin ? ['-'] : [opts.prompt]),
-      '--full-auto',
+      '--sandbox', sandboxMode,
       '--json',
       '--output-last-message', outputFile,
       '--ephemeral',
       '--skip-git-repo-check',
     ];
-
-    if (opts.safeMode) {
-      args.push('-s', 'read-only');
-    }
 
     const env = this.getReviewerEnv();
 
