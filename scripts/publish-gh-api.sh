@@ -41,6 +41,56 @@ command -v gh >/dev/null 2>&1 || { echo "error: gh CLI not found" >&2; exit 1; }
 command -v jq >/dev/null 2>&1 || { echo "error: jq not found" >&2; exit 1; }
 gh auth status >/dev/null 2>&1 || { echo "error: gh not authenticated; run: gh auth login" >&2; exit 1; }
 
+# Each file is a separate commit, so publishing 60+ files fires 60+ rapid writes
+# that routinely trip GitHub's secondary rate limit / transient 5xx (403/429/5xx).
+# Without retries these surface as random per-file `failed=N` (a different file each
+# run) — which previously forced manual re-runs. Retry transient HTTP codes with
+# exponential backoff so a single invocation completes cleanly. (Ported from the
+# Retrivio publish script, which never showed these failures because it retried.)
+MAX_RETRIES="${PUBLISH_GH_API_MAX_RETRIES:-5}"
+RETRY_BASE_DELAY_SEC="${PUBLISH_GH_API_RETRY_DELAY_SEC:-2}"
+
+is_retryable_http_code() {
+  case "$1" in
+    403|408|409|425|429|500|502|503|504) return 0 ;;
+    *) return 1 ;;
+  esac
+}
+
+extract_http_code() {
+  local text="${1:-}"
+  if [[ "$text" =~ HTTP[[:space:]]+([0-9]{3}) ]]; then printf '%s' "${BASH_REMATCH[1]}"; return 0; fi
+  if [[ "$text" =~ status[[:space:]]code:[[:space:]]*([0-9]{3}) ]]; then printf '%s' "${BASH_REMATCH[1]}"; return 0; fi
+  return 1
+}
+
+# PUT a file's content with retry+backoff on transient errors. Returns 0 on
+# success, 1 on a non-retryable error or after exhausting retries.
+gh_put_with_retry() {
+  local endpoint="$1" payload="$2" file="$3"
+  local attempt=1 delay="$RETRY_BASE_DELAY_SEC" err_file err_text code
+  while true; do
+    err_file="$(mktemp -t comparo-put-err.XXXXXX)"
+    if gh api --method PUT "$endpoint" --input "$payload" >/dev/null 2>"$err_file"; then
+      rm -f "$err_file"; return 0
+    fi
+    err_text="$(cat "$err_file" 2>/dev/null || true)"; rm -f "$err_file"
+    code="$(extract_http_code "$err_text" || true)"
+    # Non-retryable error → give up immediately.
+    if [[ -n "$code" ]] && ! is_retryable_http_code "$code"; then
+      [[ -n "$err_text" ]] && echo "  $file: $err_text" >&2
+      return 1
+    fi
+    if (( attempt >= MAX_RETRIES )); then
+      [[ -n "$err_text" ]] && echo "  $file: $err_text" >&2
+      return 1
+    fi
+    echo "warn: PUT ${file} failed${code:+ (HTTP ${code})}; retry ${attempt}/${MAX_RETRIES} in ${delay}s..." >&2
+    sleep "$delay"
+    attempt=$((attempt + 1)); delay=$((delay * 2))
+  done
+}
+
 # Strict allowlist. Anything not listed here is NEVER published.
 ALLOWLIST=(
   "README.md"
@@ -130,7 +180,7 @@ for file in "${FILES[@]}"; do
     jq -n --arg m "$msg" --rawfile c "$content_file" --arg b "$BRANCH" \
       '{message:$m, content:$c, branch:$b}' >"$payload"
   fi
-  if gh api --method PUT "repos/${OWNER}/${REPO}/contents/${file}" --input "$payload" >/dev/null 2>&1; then
+  if gh_put_with_retry "repos/${OWNER}/${REPO}/contents/${file}" "$payload" "$file"; then
     [[ -n "$sha" ]] && { echo "updated: $file"; updated=$((updated+1)); } \
       || { echo "added: $file"; added=$((added+1)); }
   else
