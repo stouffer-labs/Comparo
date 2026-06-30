@@ -106,6 +106,28 @@ describe('CodexAdapter', () => {
     expect(opts.onActivity).toBe(onActivity);
   });
 
+  it('uses --sandbox (not the deprecated --full-auto) and maps safeMode to the sandbox value', async () => {
+    mockRunCommand.mockResolvedValue({ stdout: '', stderr: '', exitCode: 0, timedOut: false, durationMs: 1_000 });
+
+    // Default (not safe) → workspace-write (the exact behavior --full-auto expanded to).
+    await adapter.invoke({ prompt: 'q', timeout: 30_000 });
+    let args = (mockRunCommand.mock.calls[0]?.[0] as { args: string[] }).args;
+    expect(args).not.toContain('--full-auto'); // deprecated alias must be gone
+    expect(args).toContain('--sandbox');
+    expect(args[args.indexOf('--sandbox') + 1]).toBe('workspace-write');
+    // Exactly one sandbox flag (no conflicting double-spec).
+    expect(args.filter((a) => a === '--sandbox')).toHaveLength(1);
+    expect(args).not.toContain('-s');
+
+    // safeMode → read-only.
+    mockRunCommand.mockClear();
+    await adapter.invoke({ prompt: 'q', timeout: 30_000, safeMode: true });
+    args = (mockRunCommand.mock.calls[0]?.[0] as { args: string[] }).args;
+    expect(args).not.toContain('--full-auto');
+    expect(args[args.indexOf('--sandbox') + 1]).toBe('read-only');
+    expect(args.filter((a) => a === '--sandbox')).toHaveLength(1);
+  });
+
   it('extracts the last agent_message from the JSON stream (modern item.completed shape)', async () => {
     const stdout = buildStream(
       [
