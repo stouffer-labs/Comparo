@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  # Allows a run to be triggered on demand. Useful because this project publishes
+  # by mirroring a tree: when a sync produces an identical tree no commit is made,
+  # so there is no push event to test against.
+  workflow_dispatch:
 
 jobs:
   build:
