@@ -162,8 +162,8 @@ export class CodexAdapter extends ProviderAdapter {
   ): Promise<ProviderResponse> {
     const events = this.parseEvents(stdout);
 
-    // FIRST: detect UPSTREAM UNAVAILABILITY (the model backend, e.g. Amazon
-    // Bedrock, couldn't be reached). codex retries the stream internally up to 5
+    // FIRST: detect UPSTREAM UNAVAILABILITY (the model backend couldn't be
+    // reached). codex retries the stream internally up to 5
     // times; when those are exhausted the turn ends in `turn.failed` and/or the
     // stream emits repeated `error` events like "stream disconnected before
     // completion", "Exceeded on-demand capacity", or "The server had an error".

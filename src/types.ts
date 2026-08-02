@@ -18,7 +18,7 @@ export interface ProviderResponse {
   incomplete?: boolean;
   /**
    * True when the provider could not reach its model backend (e.g. the codex
-   * stream to Amazon Bedrock disconnected repeatedly / "Exceeded on-demand
+   * stream to the backend disconnected repeatedly / "Exceeded on-demand
    * capacity" / the turn ended in `turn.failed`). This is an UPSTREAM outage,
    * not a problem with the request or with comparo — surfaced distinctly so the
    * caller (and user) knows the review was skipped due to backend unavailability

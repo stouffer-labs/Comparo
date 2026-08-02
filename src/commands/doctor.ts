@@ -2,7 +2,9 @@ import { loadConfig } from '../config/loader.js';
 import { getProvider } from '../providers/registry.js';
 import type { ProviderName } from '../types.js';
 
-const ALL_PROVIDERS: ProviderName[] = ['claude', 'gemini', 'codex'];
+// Only the providers this install actually consults — kept in step with
+// ProviderNameSchema in src/schemas.ts.
+const ALL_PROVIDERS: ProviderName[] = ['codex'];
 
 export async function runDoctor(): Promise<void> {
   const config = await loadConfig();

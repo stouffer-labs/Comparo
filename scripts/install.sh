@@ -59,6 +59,11 @@ case "$INSTALL_DIR" in
   *) echo "error: COMPARO_INSTALL_DIR must be an absolute path: '${INSTALL_DIR}'" >&2; exit 1 ;;
 esac
 
+# System temp is correct HERE (and only here): this is the public end-user
+# installer, normally run via `curl … | bash` on a machine with no Comparo
+# checkout, so there is no project tmp/ to use. It holds the downloaded tarball
+# only. Maintainer scripts that DO run inside the project (e.g. sync-gh.sh) must
+# use the project's own tmp/ instead.
 tmp_dir="$(mktemp -d -t comparo-install.XXXXXX)"
 trap "rm -rf -- '${tmp_dir}'" EXIT
 

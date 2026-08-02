@@ -210,7 +210,7 @@ describe('CodexAdapter', () => {
     expect(res.incomplete).toBeFalsy();
   });
 
-  // ---- Upstream backend UNAVAILABILITY (Bedrock outage) ----
+  // ---- Upstream backend UNAVAILABILITY (model-backend outage) ----
   // Real signature: codex retries the stream up to 5x then ends in turn.failed.
 
   it('flags UNAVAILABLE when the stream disconnects repeatedly and the turn fails', async () => {

@@ -1,17 +1,21 @@
 import { z } from 'zod';
 
-export const ProviderNameSchema = z.enum(['claude', 'gemini', 'codex']);
+// Codex is the only reviewer this install consults. Narrowing the enum here is
+// what enforces it: the MCP tool schemas are generated from these shapes, so a
+// caller cannot even ask for claude or gemini. The claude/gemini adapters and
+// their config entries stay in the tree, dormant — widen this enum to re-enable.
+export const ProviderNameSchema = z.enum(['codex']);
 
 export const ReviewInputSchema = z.object({
   context: z.string().describe('Full context of what is being reviewed'),
   question: z.string().describe('Specific question for reviewers'),
-  reviewers: z.array(ProviderNameSchema).min(1).describe('Which AIs to consult, e.g. ["gemini", "claude", "codex"]'),
+  reviewers: z.array(ProviderNameSchema).min(1).default(['codex']).describe('Which AIs to consult. Only ["codex"] is available.'),
   contextFiles: z.array(z.string()).optional().describe('File paths reviewers should read'),
 });
 
 export const RaceInputSchema = z.object({
   prompt: z.string().describe('Same prompt sent to all models'),
-  models: z.array(ProviderNameSchema).min(1).describe('Which AIs to race, e.g. ["claude", "gemini", "codex"]'),
+  models: z.array(ProviderNameSchema).min(1).default(['codex']).describe('Which AIs to race. Only ["codex"] is available.'),
 });
 
 export const CheckInputSchema = z.object({

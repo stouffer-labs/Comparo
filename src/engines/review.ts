@@ -174,7 +174,7 @@ export async function executeReview(
         '## Cross-Validation Report — SKIPPED (model backend unavailable)',
         '',
         `⚠️ The review could not run because the reviewer backend${unavailableProviders.length > 1 ? 's were' : ' was'} ` +
-          `temporarily unavailable (upstream outage — e.g. Amazon Bedrock streaming/capacity errors). ` +
+          `temporarily unavailable (upstream outage — e.g. model-backend streaming/capacity errors). ` +
           `This is NOT a failure of the code/design under review, and NOT a comparo problem. ` +
           `Re-run the review when the backend recovers.`,
         '',
